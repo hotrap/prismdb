@@ -4161,6 +4161,7 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
     assert(impl->mem_ != nullptr);
     *dbptr = impl;
   } else {
+    std::cerr << "FUCK: " << s.ToString() << std::endl;
     delete impl;
   }
   return s;
@@ -4333,6 +4334,8 @@ void ClockCache::Insert(const uint64_t key) {
     accessor.release();
   }
   else{
+    static std::mutex m;
+    std::unique_lock<std::mutex> lck(m);
     // check if cache is full, if so do eviction
     EvictIfCacheFull();
 

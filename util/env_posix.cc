@@ -692,7 +692,7 @@ class PosixEnv : public Env {
 
   Status GetTestDirectory(std::string* result) override {
     const char* env = std::getenv("TEST_TMPDIR");
-    std::string flash_prism_path = "/home/ashwini/hetsys/optane_ssd/prism/test-%d";
+    std::string flash_prism_path = "/home/yfzcsc/testdb/cd/test-%d";
     if (env && env[0] != '\0') {
       *result = env;
     } else {
