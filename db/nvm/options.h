@@ -3,7 +3,7 @@
 
 #define DEBUG 0
 #define PINNING 1
-#define PATH "/home/yfzcsc/testdb/sd/slab-%d-%lu-%lu"
+#define PATH "/root/testdb/sd/slab-%d-%lu-%lu"
 
 /* In memory structures */
 #define BTREE 3
