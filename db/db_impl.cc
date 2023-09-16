@@ -1965,8 +1965,10 @@ void DBImpl::SelectMigrationKeys(PartitionContext* p_ctx, std::vector<index_entr
       // HACK
       if (keys.nb_entries == 0) {
         fprintf(stderr, "DBG: %X ERROR: btree_find_between returns 0 entries\n", std::this_thread::get_id());
-        delete [] keys.hashes;
-        delete [] keys.entries;
+        if (bounds_lst.size() > 0) {
+          free(keys.hashes);
+          free(keys.entries);
+        }
         // HACK: pick only 500 keys
         keys = btree_find_n_bytes_rr(p_ctx->index, &p_ctx->prev_migration_key, (uint32_t)(0.8*(float)maxSstFileSizeBytes), &pop_table_, popRank, false, true, (void*)(p_ctx->pop_cache_ptr), popThreshold);
       }
