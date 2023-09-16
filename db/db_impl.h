@@ -280,6 +280,7 @@ class DBImpl : public DB {
 
   // create two methods to explicitly output and reset migration stats
   void ReportMigrationStats() override;
+  void ReportMigrationStats(std::ostream&) override;
   void ResetMigrationStats() override;
   void SetDbMode(bool load) override;
   void SetCorrectBucketTotalKeys() override;
@@ -352,9 +353,9 @@ class DBImpl : public DB {
   uint32_t popRank = 0;
   float popThreshold = 0.7;
   // popularity clock cache size in bytes
-  uint32_t popCacheSize = 2200000;
-  bool load_phase_ = true;
-  uint64_t numKeys = 40000000;
+  uint32_t popCacheSize = 80000000;
+  bool load_phase_ = false;
+  uint64_t numKeys = 200000000;
   uint64_t numWriteKeys = numKeys; // For twitter
   uint64_t numPartitions = 8;
   uint64_t maxDbSizeBytes = 0;
@@ -393,7 +394,7 @@ class DBImpl : public DB {
     // migration thresholds
     float ratelimit_threshold = 0.98; //0.98; //1.0;
     float migration_upper_bound = 0.98; //0.98; //1.0;
-    float read_dominated_threshold = 0.95;
+    float read_dominated_threshold = 0.01;
     float read_ratio_improv_threshold = 0.05;
     uint64_t upsert_delay_threshold = 100000; // in terms of get operations
     uint64_t read_ratio_tracking_freq = 100000; // in terms of get operations, should always be less that upsert_delay_threshold
@@ -449,6 +450,10 @@ class DBImpl : public DB {
     float mig_compaction_write_qlc = 0;
     float mig_remove = 0;
     float mig_remove_lock = 0;
+
+    PartitionContext() {
+      
+    }
 
   }PartitionContext;
   PartitionContext* partitions;

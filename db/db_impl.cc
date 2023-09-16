@@ -223,6 +223,70 @@ void DBImpl::ReportMigrationStats() {
   //}
 }
 
+// print to stream
+
+template<typename... T>
+static void print_to_log(std::ostream& log, const char* str, T&&... args) {
+  char a[256];
+  sprintf(a, str, args...);
+  log << a;
+}
+
+void DBImpl::ReportMigrationStats(std::ostream& log) {
+  for (int i = 0; i < numPartitions; i++) {
+    print_to_log(log, "\nPartition %d\n", i);
+    print_to_log(log, "\nPutImpl Statistics\n");
+    print_to_log(log, "Num of Puts: %d\n", partitions[i].num_puts);
+    print_to_log(log, "Num of Inserts %d; Num of Updates: %d\n", (partitions[i].num_puts - partitions[i].num_updates),partitions[i].num_updates);
+    print_to_log(log, "Average time for Put(): %.f ns\n", (partitions[i].put_time / (float) partitions[i].num_puts));
+    print_to_log(log, "Average time for converting kv format: %.f ns\n", (partitions[i].put_copy_array / (float) partitions[i].num_puts));
+    print_to_log(log, "Average time for acquiring partition lock: %.f ns\n", (partitions[i].put_acquire_lock / (float) partitions[i].num_puts));
+    print_to_log(log, "Average time for btree_find: %.f ns\n", (partitions[i].put_find_index_time / (float) partitions[i].num_puts));
+    print_to_log(log, "Average time for insert_item_sync: %.f ns\n", (partitions[i].insert_optane_time / (float) (partitions[i].num_puts - partitions[i].num_updates)));
+    print_to_log(log, "Average time for update_item_sync: %.f ns\n", (partitions[i].update_optane_time / (float) partitions[i].num_updates));
+    print_to_log(log, "Average time for btree_delete: %.f ns\n", (partitions[i].put_delete_index_time / (float) partitions[i].num_updates));
+    print_to_log(log, "Average time for btree_insert: %.f ns\n", (partitions[i].put_insert_index_time / (float) partitions[i].num_puts));
+
+    print_to_log(log, "\nGet Statistics\n");
+    print_to_log(log, "Num of Gets: %d\n", partitions[i].num_optane_gets + partitions[i].num_qlc_gets);
+    print_to_log(log, "Num of optane: %d; Num of qlc: %d\n", partitions[i].num_optane_gets, partitions[i].num_qlc_gets);
+    print_to_log(log, "Average time for Get() from optane: %.f ns\n", (partitions[i].get_optane_time / (float) partitions[i].num_optane_gets));
+    print_to_log(log, "  Average time for acquiring optane lock: %.f ns\n", (partitions[i].get_acquire_optane_lock / (float) partitions[i].num_optane_gets));
+    print_to_log(log, "  Average time for btree_find: %.f ns\n", (partitions[i].get_find_optane_index / (float) partitions[i].num_optane_gets));
+    print_to_log(log, "  Average time for read_item_key_val: %.f ns\n", (partitions[i].get_read_optane / (float) partitions[i].num_optane_gets));
+    print_to_log(log, "Average time for Get() from qlc: %.f ns\n", (partitions[i].get_qlc_time / (float) partitions[i].num_qlc_gets));
+    print_to_log(log, "  Average time for acquiring qlc lock: %.f ns\n", (partitions[i].get_acquire_qlc_lock / (float) partitions[i].num_qlc_gets));
+    print_to_log(log, "  Average time for reading from qlc: %.f ns\n", (partitions[i].get_read_qlc / (float) partitions[i].num_qlc_gets));
+
+    print_to_log(log, "\nMigration Statistics\n");
+    print_to_log(log, "Num of Migrations: %d\n", partitions[i].migrationId);
+    print_to_log(log, "Average num keys for Migration: %.f \n", (partitions[i].num_mig_keys / (float) partitions[i].migrationId));
+    print_to_log(log, "Average time for BackgroundCall: %.f ns\n", (partitions[i].mig_backgroundcall / (float) partitions[i].migrationId));
+    print_to_log(log, "   Selecting migration keys: %.f ns\n", (partitions[i].mig_select / (float) partitions[i].migrationId));
+    print_to_log(log, "       Acquire partition lock: %.f ns\n", (partitions[i].mig_select_lock / (float) partitions[i].migrationId));
+    print_to_log(log, "       Select keys from btree: %.f ns\n", (partitions[i].mig_select_btree / (float) partitions[i].migrationId));
+    print_to_log(log, "       Copy keys to the arrays: %.f ns\n", (partitions[i].mig_select_copy / (float) partitions[i].migrationId));
+    print_to_log(log, "   Picking dummy sst migration file: %.f ns\n", (partitions[i].mig_pick/ (float) partitions[i].migrationId));
+    print_to_log(log, "       Acquire lsm lock: %.f ns\n", (partitions[i].mig_pick_lock / (float) partitions[i].migrationId));
+    print_to_log(log, "   Doing compaction: %.f ns\n", (partitions[i].mig_compaction / (float) partitions[i].migrationId));
+    print_to_log(log, "       Acquire lsm lock: %.f ns\n", (partitions[i].mig_compaction_lock / (float) partitions[i].migrationId));
+    print_to_log(log, "       Read from optane: %.f ns\n", (partitions[i].mig_compaction_read_optane / (float) partitions[i].migrationId));
+    print_to_log(log, "       Read from qlc: %.f ns\n", (partitions[i].mig_compaction_read_qlc / (float) partitions[i].migrationId));
+    print_to_log(log, "       Write to qlc: %.f ns\n", (partitions[i].mig_compaction_write_qlc / (float) partitions[i].migrationId));
+    print_to_log(log, "   Removing from optane and index: %.f ns\n", (partitions[i].mig_remove / (float) partitions[i].migrationId));
+    print_to_log(log, "       Acquire partition lock: %.f ns\n", (partitions[i].mig_remove_lock / (float) partitions[i].migrationId));
+
+
+    print_to_log(log, "\nbtree size in keys: %llu; btree size in KB: %llu\n", btree_get_size(partitions[i].index), (btree_get_size_in_bytes(partitions[i].index)/1024));
+  }
+  print_to_log(log, "\nhash table size in KB: %llu\n", ((sizeof(uint64_t)*2*pop_table_.size() + sizeof(pop_table_))/1024));
+
+  ////FREELIST: debug prints
+  //for (int i = 0; i < numPartitions; i++) {
+  //  print_freelist(partitions[i].slabContext);
+  //}
+}
+
 void DBImpl::ResetMigrationStats() {
   for (int i = 0; i < numPartitions; i++) {
     partitions[i].num_puts = 0;

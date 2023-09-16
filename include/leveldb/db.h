@@ -158,6 +158,7 @@ class LEVELDB_EXPORT DB {
 
   // prismdb
   virtual void ReportMigrationStats() = 0;
+  virtual void ReportMigrationStats(std::ostream&) = 0;
   virtual void ResetMigrationStats() = 0;
   virtual void SetDbMode(bool load) = 0;
   virtual void SetCorrectBucketTotalKeys() = 0;

@@ -2114,6 +2114,7 @@ class ModelDB : public DB {
 
   // JIANAN
   void ReportMigrationStats() override {}
+  void ReportMigrationStats(std::ostream&) override {}
   void ResetMigrationStats() override {}
   void SetDbMode(bool load) override {}
   void SetCorrectBucketTotalKeys() override {}
