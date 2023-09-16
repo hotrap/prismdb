@@ -6,6 +6,8 @@
 #define STORAGE_LEVELDB_INCLUDE_OPTIONS_H_
 
 #include <cstddef>
+#include <memory>
+#include <string>
 
 #include "leveldb/export.h"
 
@@ -177,6 +179,21 @@ struct LEVELDB_EXPORT Options {
   // 3: precise M = (1 - p) / N * (1 - s)
   int migration_metric = 1;
 
+  float popThreshold = 0.7;
+  // popularity clock cache size in bytes
+  uint32_t popCacheSize = 80000000;
+  uint32_t load_phase_op_num = 0;
+  uint64_t numKeys = 200000000;
+  uint64_t numWriteKeys = numKeys; // For twitter
+  uint64_t numPartitions = 8;
+  uint64_t maxDbSizeBytes = 0;
+  uint32_t maxKeySizeBytes = 8;
+  uint32_t maxKVSizeBytes = 1024;
+  float optaneThreshold = 0.1;
+  uint64_t maxSstFileSizeBytes = 64*(2<<19); // size of sst files
+  uint32_t minSstFileMigThreshold = 0;
+
+  std::string slab_dir;
 
 };
 

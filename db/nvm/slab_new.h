@@ -70,7 +70,7 @@ size_t decode_size(char* buffer);
 
 
 //char *create_item(char *key, char *value);
-struct slab_new* create_slab_new(struct slab_context_new *ctx, int worker_id, size_t item_size);
+struct slab_new* create_slab_new(struct slab_context_new *ctx, int worker_id, size_t item_size, const char* path_format);
 void delete_all_slabs(struct slab_context_new *ctx); //FREELIST 
 int close_slab_fds(struct slab_context_new *ctx);
 struct slab_new* resize_slab_new(struct slab_new *s);

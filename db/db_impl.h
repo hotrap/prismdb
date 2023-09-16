@@ -354,7 +354,7 @@ class DBImpl : public DB {
   float popThreshold = 0.7;
   // popularity clock cache size in bytes
   uint32_t popCacheSize = 80000000;
-  bool load_phase_ = false;
+  bool load_phase_ = true;
   uint64_t numKeys = 200000000;
   uint64_t numWriteKeys = numKeys; // For twitter
   uint64_t numPartitions = 8;
@@ -450,10 +450,6 @@ class DBImpl : public DB {
     float mig_compaction_write_qlc = 0;
     float mig_remove = 0;
     float mig_remove_lock = 0;
-
-    PartitionContext() {
-      
-    }
 
   }PartitionContext;
   PartitionContext* partitions;

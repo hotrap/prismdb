@@ -252,7 +252,7 @@ off_t item_in_page_offset_new(struct slab_new *s, size_t idx) {
  * Create a slab: a file that only contains items of a given size.
  * @callback is a callback that will be called on all previously existing items of the slab if it is restored from disk.
  */
-struct slab_new* create_slab_new(struct slab_context_new *ctx, int slab_worker_id, size_t item_size) {
+struct slab_new* create_slab_new(struct slab_context_new *ctx, int slab_worker_id, size_t item_size, const char* path_format) {
    //fprintf(stderr, "create_slab_new start \n");
 
    struct stat sb;
@@ -261,7 +261,7 @@ struct slab_new* create_slab_new(struct slab_context_new *ctx, int slab_worker_i
 
    size_t disk = 0;
 
-   sprintf(path, PATH, disk, slab_worker_id, 0LU, item_size);
+   sprintf(path, path_format, disk, slab_worker_id, 0LU, item_size);
    // JIANAN: TODO
    // If file is opened with O_DIRECT flag, for synchronous IO, flush + fsync?
    // JIANAN: use kernel page cache

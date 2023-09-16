@@ -165,7 +165,21 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
       background_compaction_scheduled_(false),
       manual_compaction_(nullptr),
       versions_(new VersionSet(dbname_, &options_, table_cache_,
-                               &internal_comparator_)) {}
+                               &internal_comparator_)) {
+                                uint32_t popRank = 0;
+          popThreshold = options_.popThreshold;
+          // popularity clock cache size in bytes
+          popCacheSize = options_.popCacheSize;
+          numKeys = options_.numKeys;
+          numWriteKeys = options_.numWriteKeys; // For twitter
+          numPartitions = options_.numPartitions;
+          maxDbSizeBytes = options_.maxDbSizeBytes;
+          maxKeySizeBytes = options_.maxKeySizeBytes;
+          maxKVSizeBytes = options_.maxKVSizeBytes;
+          optaneThreshold = options_.optaneThreshold;
+          maxSstFileSizeBytes = options_.maxSstFileSizeBytes; // size of sst files
+          minSstFileMigThreshold = options_.minSstFileMigThreshold;
+      }
 
 // JIANAN
 void DBImpl::ReportMigrationStats() {
@@ -452,24 +466,26 @@ void DBImpl::initPartitions(void) {
           // cluster 39 config 100, 200, 300, 400, 600
 	  // cluster 51 config 300, 400, 500, 600, 1000
           //ctx->slabs[j] = create_slab_new(partitions[i].slabContext, i, 64); // read dominated trace cluster 19 (was 256)
-          ctx->slabs[j] = create_slab_new(partitions[i].slabContext, i, 300); // read dominated trace cluster 19 (was 256)
+          ctx->slabs[j] = create_slab_new(partitions[i].slabContext, i, 300, options_.slab_dir.c_str()); // read dominated trace cluster 19 (was 256)
         }
 	else if (j==1){
-          ctx->slabs[j] = create_slab_new(partitions[i].slabContext, i, 400); // read dominated trace cluster 19 (was 256)
+          ctx->slabs[j] = create_slab_new(partitions[i].slabContext, i, 400, options_.slab_dir.c_str()); // read dominated trace cluster 19 (was 256)
         }
 	else if (j==2){
-          ctx->slabs[j] = create_slab_new(partitions[i].slabContext, i, 500); // read dominated trace cluster 19 (was 256)
+          ctx->slabs[j] = create_slab_new(partitions[i].slabContext, i, 500, options_.slab_dir.c_str()); // read dominated trace cluster 19 (was 256)
         }
 	else if (j==3){
-          ctx->slabs[j] = create_slab_new(partitions[i].slabContext, i, 600); // read dominated trace cluster 19 (was 256)
+          ctx->slabs[j] = create_slab_new(partitions[i].slabContext, i, 600, options_.slab_dir.c_str()); // read dominated trace cluster 19 (was 256)
         }
 	else{
-          ctx->slabs[j] = create_slab_new(partitions[i].slabContext, i, 1000); // write dominated trace cluster 39
+          ctx->slabs[j] = create_slab_new(partitions[i].slabContext, i, 1000, options_.slab_dir.c_str()); // write dominated trace cluster 39
         }
       } else {
+        int slab_size = 1024;
+        while (maxKVSizeBytes > slab_size) slab_size >>= 1;
         //ctx->slabs[j] = create_slab_new(partitions[i].slabContext, i, 1024);
         if (j == 0) {
-          ctx->slabs[j] = create_slab_new(partitions[i].slabContext, i, 1024);
+          ctx->slabs[j] = create_slab_new(partitions[i].slabContext, i, slab_size, options_.slab_dir.c_str());
         }  
         //if (j == 0) {
         //  ctx->slabs[j] = create_slab_new(partitions[i].slabContext, i, 800);
@@ -4307,6 +4323,9 @@ void ClockCache::EvictIfCacheFull(){
     return;
   }
 
+  static std::mutex m;
+  std::unique_lock<std::mutex> lck(m);
+
   while (true) {
 
     bool ret = false;
@@ -4398,8 +4417,6 @@ void ClockCache::Insert(const uint64_t key) {
     accessor.release();
   }
   else{
-    static std::mutex m;
-    std::unique_lock<std::mutex> lck(m);
     // check if cache is full, if so do eviction
     EvictIfCacheFull();
 
