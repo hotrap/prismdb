@@ -1970,7 +1970,10 @@ void DBImpl::SelectMigrationKeys(PartitionContext* p_ctx, std::vector<index_entr
           free(keys.entries);
         }
         // HACK: pick only 500 keys
-        keys = btree_find_n_bytes_rr(p_ctx->index, &p_ctx->prev_migration_key, (uint32_t)(0.8*(float)maxSstFileSizeBytes), &pop_table_, popRank, false, true, (void*)(p_ctx->pop_cache_ptr), popThreshold);
+        while (keys.nb_entries == 0) {
+          // FUCK: if keys.nb_entries still equals to 0 (when prev_migration_key is closed to the end), we need to invoke this function again. (yfzcsc)
+          keys = btree_find_n_bytes_rr(p_ctx->index, &p_ctx->prev_migration_key, (uint32_t)(0.8*(float)maxSstFileSizeBytes), &pop_table_, popRank, false, true, (void*)(p_ctx->pop_cache_ptr), popThreshold);
+        }
       }
     } else {
       fprintf(stderr, "DBG: %X warmup migration round-robin\n", std::this_thread::get_id());
