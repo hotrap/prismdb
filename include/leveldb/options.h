@@ -192,6 +192,7 @@ struct LEVELDB_EXPORT Options {
   float optaneThreshold = 0.1;
   uint64_t maxSstFileSizeBytes = 64*(2<<19); // size of sst files
   uint32_t minSstFileMigThreshold = 0;
+  size_t num_warmup_migrations = 0;
 
   std::string slab_dir;
 

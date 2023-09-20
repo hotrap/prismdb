@@ -179,6 +179,7 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
           optaneThreshold = options_.optaneThreshold;
           maxSstFileSizeBytes = options_.maxSstFileSizeBytes; // size of sst files
           minSstFileMigThreshold = options_.minSstFileMigThreshold;
+          num_warmup_migrations = options_.num_warmup_migrations;
       }
 
 // JIANAN
@@ -446,6 +447,7 @@ void DBImpl::initPartitions(void) {
     partitions[i].index = btree_create();
     partitions[i].pid = (uint8_t)i;
     fprintf(stderr, "init btree done\n");
+    partitions[i].num_warmup_migrations = num_warmup_migrations / numPartitions;
 
     if (is_twitter_) {
       //partitions[i].num_warmup_migrations = 1; // was 50 for 328M keys
@@ -1970,10 +1972,7 @@ void DBImpl::SelectMigrationKeys(PartitionContext* p_ctx, std::vector<index_entr
           free(keys.entries);
         }
         // HACK: pick only 500 keys
-        while (keys.nb_entries == 0) {
-          // FUCK: if keys.nb_entries still equals to 0 (when prev_migration_key is closed to the end), we need to invoke this function again. (yfzcsc)
-          keys = btree_find_n_bytes_rr(p_ctx->index, &p_ctx->prev_migration_key, (uint32_t)(0.8*(float)maxSstFileSizeBytes), &pop_table_, popRank, false, true, (void*)(p_ctx->pop_cache_ptr), popThreshold);
-        }
+        keys = btree_find_n_bytes_rr(p_ctx->index, &p_ctx->prev_migration_key, (uint32_t)(0.8*(float)maxSstFileSizeBytes), &pop_table_, popRank, false, true, (void*)(p_ctx->pop_cache_ptr), popThreshold);
       }
     } else {
       fprintf(stderr, "DBG: %X warmup migration round-robin\n", std::this_thread::get_id());

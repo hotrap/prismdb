@@ -364,6 +364,7 @@ class DBImpl : public DB {
   float optaneThreshold = 0.1;
   uint64_t maxSstFileSizeBytes = 64*(2<<19); // size of sst files
   uint32_t minSstFileMigThreshold = 0;
+  uint32_t num_warmup_migrations = 0;
   typedef struct PartitionContext {
     uint64_t last_upsert_fn = 0;
     uint8_t pid; // partition id
