@@ -180,6 +180,7 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
           maxSstFileSizeBytes = options_.maxSstFileSizeBytes; // size of sst files
           minSstFileMigThreshold = options_.minSstFileMigThreshold;
           num_warmup_migrations = options_.num_warmup_migrations;
+          stop_upsert_trigger = options_.stop_upsert_trigger;
       }
 
 // JIANAN
@@ -448,6 +449,7 @@ void DBImpl::initPartitions(void) {
     partitions[i].pid = (uint8_t)i;
     fprintf(stderr, "init btree done\n");
     partitions[i].num_warmup_migrations = num_warmup_migrations / numPartitions;
+    partitions[i].stop_upsert_trigger = stop_upsert_trigger / numPartitions;
 
     if (is_twitter_) {
       //partitions[i].num_warmup_migrations = 1; // was 50 for 328M keys
@@ -2057,6 +2059,11 @@ void DBImpl::BackgroundCompaction(PartitionContext* p_ctx) {
   }
   SelectMigrationKeys(p_ctx, migration_keys, migration_keys_prefix, overlapping_sst_files);
   auto end_selection = high_resolution_clock::now();
+  
+  if (migration_keys.size() == 0) {  
+    p_ctx->mtx.unlock();
+    return;
+  }
   assert(migration_keys.size() != 0);
 
   //mutex_.Lock(); //ASHL

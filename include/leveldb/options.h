@@ -193,6 +193,7 @@ struct LEVELDB_EXPORT Options {
   uint64_t maxSstFileSizeBytes = 64*(2<<19); // size of sst files
   uint32_t minSstFileMigThreshold = 0;
   size_t num_warmup_migrations = 0;
+  uint64_t stop_upsert_trigger = 250 * 1000000;
 
   std::string slab_dir;
 
