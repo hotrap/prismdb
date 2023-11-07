@@ -194,6 +194,7 @@ struct LEVELDB_EXPORT Options {
   uint32_t minSstFileMigThreshold = 0;
   size_t num_warmup_migrations = 0;
   uint64_t stop_upsert_trigger = 250 * 1000000;
+  float read_dominated_threshold = 0.95;
 
   std::string slab_dir;
 

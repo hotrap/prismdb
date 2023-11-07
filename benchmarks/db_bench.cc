@@ -1611,7 +1611,7 @@ class Benchmark {
       }else if (name == "ycsbwkldc") {
         FLAGS_use_existing_db = true;
         //FLAGS_duration = 10;
-        db_->SetDbMode(false); // load flag is false
+        db_->(false); // load flag is false
         if (FLAGS_open_loop == false){
           method = &Benchmark::YCSBWorkloadC_CL;
         } 

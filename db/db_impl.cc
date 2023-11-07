@@ -181,6 +181,7 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
           minSstFileMigThreshold = options_.minSstFileMigThreshold;
           num_warmup_migrations = options_.num_warmup_migrations;
           stop_upsert_trigger = options_.stop_upsert_trigger;
+          read_dominated_threshold = options_.read_dominated_threshold;
       }
 
 // JIANAN
@@ -450,6 +451,7 @@ void DBImpl::initPartitions(void) {
     fprintf(stderr, "init btree done\n");
     partitions[i].num_warmup_migrations = num_warmup_migrations / numPartitions;
     partitions[i].stop_upsert_trigger = stop_upsert_trigger / numPartitions;
+    partitions[i].read_dominated_threshold = read_dominated_threshold;
 
     if (is_twitter_) {
       //partitions[i].num_warmup_migrations = 1; // was 50 for 328M keys

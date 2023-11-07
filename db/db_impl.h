@@ -366,6 +366,7 @@ class DBImpl : public DB {
   uint32_t minSstFileMigThreshold = 0;
   uint32_t num_warmup_migrations = 0;
   uint64_t stop_upsert_trigger = 250 * 1000000;
+  float read_dominated_threshold = 0.95;
   typedef struct PartitionContext {
     uint64_t last_upsert_fn = 0;
     uint8_t pid; // partition id
@@ -396,7 +397,7 @@ class DBImpl : public DB {
     // migration thresholds
     float ratelimit_threshold = 0.98; //0.98; //1.0;
     float migration_upper_bound = 0.98; //0.98; //1.0;
-    float read_dominated_threshold = 0.01;
+    float read_dominated_threshold = 0.95;
     float read_ratio_improv_threshold = 0.05;
     uint64_t upsert_delay_threshold = 1000000; // in terms of get operations
     uint64_t read_ratio_tracking_freq = 1000000; // in terms of get operations, should always be less that upsert_delay_threshold
