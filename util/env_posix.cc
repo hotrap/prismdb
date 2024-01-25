@@ -41,7 +41,7 @@ namespace leveldb {
 namespace {
 
 // Set by EnvPosixTestHelper::SetReadOnlyMMapLimit() and MaxOpenFiles().
-int g_open_read_only_file_limit = -1;
+int g_open_read_only_file_limit = 1000000;
 
 // Up to 1000 mmap regions for 64-bit binaries; none for 32-bit.
 constexpr const int kDefaultMmapLimit = (sizeof(void*) >= 8) ? 1000 : 0;

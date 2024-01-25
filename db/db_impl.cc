@@ -4336,8 +4336,8 @@ void ClockCache::EvictIfCacheFull(){
     return;
   }
 
-  static std::mutex m;
-  std::unique_lock<std::mutex> lck(m);
+ // static std::mutex m;
+ // std::unique_lock<std::mutex> lck(m);
 
   while (true) {
 
