@@ -230,7 +230,7 @@ void DBImpl::ReportMigrationStats() {
     fprintf(stderr, "       Acquire partition lock: %.f ns\n", (partitions[i].mig_remove_lock / (float) partitions[i].migrationId));
 
 
-    fprintf(stderr, "\nbtree size in keys: %llu; btree size in KB: %llu\n", btree_get_size(partitions[i].index), (btree_get_size_in_bytes(partitions[i].index)/1024));
+    // fprintf(stderr, "\nbtree size in keys: %llu; btree size in KB: %llu\n", btree_get_size(partitions[i].index), (btree_get_size_in_bytes(partitions[i].index)/1024));
   }
   fprintf(stderr, "\nhash table size in KB: %llu\n", ((sizeof(uint64_t)*2*pop_table_.size() + sizeof(pop_table_))/1024));
 
@@ -294,7 +294,7 @@ void DBImpl::ReportMigrationStats(std::ostream& log) {
     print_to_log(log, "       Acquire partition lock: %.f ns\n", (partitions[i].mig_remove_lock / (float) partitions[i].migrationId));
 
 
-    print_to_log(log, "\nbtree size in keys: %llu; btree size in KB: %llu\n", btree_get_size(partitions[i].index), (btree_get_size_in_bytes(partitions[i].index)/1024));
+    // print_to_log(log, "\nbtree size in keys: %llu; btree size in KB: %llu\n", btree_get_size(partitions[i].index), (btree_get_size_in_bytes(partitions[i].index)/1024));
   }
   print_to_log(log, "\nhash table size in KB: %llu\n", ((sizeof(uint64_t)*2*pop_table_.size() + sizeof(pop_table_))/1024));
 
