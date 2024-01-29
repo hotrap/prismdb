@@ -186,7 +186,7 @@ struct LEVELDB_EXPORT Options {
   uint32_t load_phase_op_num = 0;
   uint64_t numKeys = 200000000;
   uint64_t numWriteKeys = numKeys; // For twitter
-  uint64_t numPartitions = 8;
+  uint64_t numPartitions = 16;
   uint64_t maxDbSizeBytes = 0;
   uint32_t maxKeySizeBytes = 8;
   uint32_t maxKVSizeBytes = 1024;
