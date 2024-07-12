@@ -1373,8 +1373,12 @@ void DBImpl::findSSTRanges(PartitionContext* p_ctx, std::vector<std::pair<uint64
     for (auto it = p_ctx->files.begin(); it != p_ctx->files.end(); ++it) {
       file_numbers.push_back(it->first);
     }
+    
     // iterate for range_num times
     for (int i = 0; i < range_num; i++) {
+      if (file_numbers.empty()) {
+        break;
+      }
       // select a SST file from an random index
       uint64_t index = rand()%(file_numbers.size());
       uint64_t file_number = file_numbers.at(index);
