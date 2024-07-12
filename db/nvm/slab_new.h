@@ -52,7 +52,6 @@ struct slab_new {
 
    int fd;
    size_t size_on_disk;
-   size_t write_counts;
 
    size_t nb_free_items, nb_free_items_in_memory;
    struct freelist *free_list; // FREELIST

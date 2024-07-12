@@ -422,16 +422,15 @@ void insert_item_at_idx(struct slab_new *slab, char *item, size_t item_size, siz
 
    // flush and sync
    // JIANAN: TODO: double check this, do we need fflush() or O_SYNC flag when opening this file?
-   if (!load_phase_ && (slab->write_counts & 131071) == 0){
+   if (!load_phase_){
      int res_sync = fdatasync(slab->fd);
      if (res_sync == -1) {
          fprintf(stderr, "fdatasync fails, error code: %d, error msg: %s\n", errno, strerror(errno));
          res->success = -1;
          return;
        }
-   //   fprintf(stderr, "%s\n", "fdatasync done");
+   //fprintf(stderr, "%s\n", "fdatasync done");
    }
-   slab->write_counts++;
 
    res->success = 0;
    //fprintf(stderr, "insert_item_at_index returns\n");
