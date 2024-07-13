@@ -464,6 +464,7 @@ void DBImpl::initPartitions(void) {
     slab_context_new *ctx = new slab_context_new;
     ctx->nb_slabs = nb_slabs;
     ctx->slabs = new slab_new*[nb_slabs]; // slabs points to an array of slab_new pointers
+    partitions[i].slabContext = ctx;
     for (int j = 0; j < nb_slabs; j++) {
       //fprintf(stderr, "init partition %d slab %d whose size is %zu\n", i, j, slab_sizes[j]);
       //ctx->slabs[j] = create_slab_new(partitions[i].slabContext, i, slab_sizes[j]);
@@ -489,6 +490,7 @@ void DBImpl::initPartitions(void) {
       } else {
         int slab_size = 1024;
         while (maxKVSizeBytes > slab_size) slab_size >>= 1;
+        ctx->size_on_disk = options_.fd_size / numPartitions / nb_slabs;
         //ctx->slabs[j] = create_slab_new(partitions[i].slabContext, i, 1024);
         if (j == 0) {
           ctx->slabs[j] = create_slab_new(partitions[i].slabContext, i, slab_size, options_.slab_dir.c_str());
@@ -502,7 +504,6 @@ void DBImpl::initPartitions(void) {
         //}
       }
     }
-    partitions[i].slabContext = ctx;
     fprintf(stderr, "init slabs done\n");
 
     partitions[i].background_compaction_scheduled = false;
@@ -1291,7 +1292,6 @@ void DBImpl::BackgroundCall(PartitionContext* p_ctx) {
   using namespace std::chrono;
   //MutexLock l(&mutex_); //ASHL
   //mutex_.Unlock(); // unlock it right away, we will selectively lock it for lsm related code
-
   assert(p_ctx->background_compaction_scheduled); // TODO:
   if (shutting_down_.load(std::memory_order_acquire)) {
     // No more background work when shutting down.
@@ -3930,7 +3930,7 @@ Status DBImpl::PutImpl(const WriteOptions& opt, const Slice& key, const Slice& v
     //fprintf(stderr, "%X\tpartition %llu max optane usage %llu\n", std::this_thread::get_id(), p, partitions[p].max_optane_usage);
   }
   if (partitions[p].num_put_reqs++ % 1000000 == 0){
-    fprintf(stderr, "%X\tpartition %llu optane usage curr %llu max %llu\n", std::this_thread::get_id(), p, partitions[p].size_in_bytes, partitions[p].max_optane_usage);
+    fprintf(stderr, "%X\tpartition %llu optane usage curr %llu max %llu %llu, limit %.2lf\n", std::this_thread::get_id(), p, partitions[p].size_in_bytes, partitions[p].max_optane_usage, maxDbSizeBytes, (double)(maxDbSizeBytes*optaneThreshold*partitions[p].migration_upper_bound/(double)numPartitions));
   }
   //fprintf(stderr, "psize %llu maxdb %llu optthresh %f soft_limit %f num_p %llu\n", partitions[p].size_in_bytes, maxDbSizeBytes, optaneThreshold, soft_limit, numPartitions);
 

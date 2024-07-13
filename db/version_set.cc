@@ -209,7 +209,7 @@ class Version::LevelFileNumIterator : public Iterator {
 };
 
 static Iterator* GetFileIterator(void* arg, const ReadOptions& options,
-                                 const Slice& file_value) {
+                                 const Slice& file_value, bool) {
   TableCache* cache = reinterpret_cast<TableCache*>(arg);
   if (file_value.size() != 16) {
     return NewErrorIterator(

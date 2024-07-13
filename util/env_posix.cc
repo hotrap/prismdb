@@ -35,6 +35,7 @@
 #include "port/thread_annotations.h"
 #include "util/env_posix_test_helper.h"
 #include "util/posix_logger.h"
+#include <iostream>
 
 namespace leveldb {
 
@@ -148,20 +149,28 @@ class PosixSequentialFile final : public SequentialFile {
 // functions.
 class PosixRandomAccessFile final : public RandomAccessFile {
  public:
+  static constexpr auto kReadAheadSize = 8 << 20;
   // The new instance takes ownership of |fd|. |fd_limiter| must outlive this
   // instance, and will be used to determine if .
-  PosixRandomAccessFile(std::string filename, int fd, Limiter* fd_limiter)
+  PosixRandomAccessFile(std::string filename, int fd, Limiter* fd_limiter, bool use_dio = true)
       : has_permanent_fd_(fd_limiter->Acquire()),
         fd_(has_permanent_fd_ ? fd : -1),
         fd_limiter_(fd_limiter),
-        filename_(std::move(filename)) {
+        filename_(std::move(filename)),
+        use_dio_(use_dio) {
     if (!has_permanent_fd_) {
       assert(fd_ == -1);
       ::close(fd);  // The file will be opened on every read.
     }
+    logical_sector_size_ = 4096;
   }
 
   ~PosixRandomAccessFile() override {
+#ifdef USE_READAHEAD
+    if (buf_) {
+      free(buf_);
+    }
+#endif
     if (has_permanent_fd_) {
       assert(fd_ != -1);
       ::close(fd_);
@@ -172,24 +181,50 @@ class PosixRandomAccessFile final : public RandomAccessFile {
   Status Read(uint64_t offset, size_t n, Slice* result,
               char* scratch) const override {
     int fd = fd_;
+    // Check if we need to read ahead.
+#ifdef USE_READAHEAD
+    if (offset == off_) {
+      cnt_ += 1;
+    } else {
+      cnt_ = 0;
+    }
+    off_ = offset + n;
+    if (cnt_ >= 6 && kReadAheadSize >= n) {
+      if (!buf_) {
+        buf_ = (char*)::aligned_alloc(4096, kReadAheadSize);
+      }
+      if (buf_off_ == -1 || (buf_off_ > offset || buf_off_ + buf_len_ < offset + n)) {
+        buf_len_ = ::pread(fd, buf_, kReadAheadSize, static_cast<off_t>(offset));
+        buf_off_ = offset;
+      }
+      *result = Slice(buf_ + offset - buf_off_, std::min<ssize_t>(offset + n, buf_off_ + buf_len_) - offset);
+      return Status::OK();
+    }
+#endif
+    
     //using namespace std::chrono;
     //auto start = high_resolution_clock::now();
     if (!has_permanent_fd_) {
-      //auto start = high_resolution_clock::now();
-      fd = ::open(filename_.c_str(), O_RDONLY | kOpenBaseFlags);
-      //fprintf(stderr, "OPENING FILE: time %llu ns\n", duration_cast<nanoseconds>(high_resolution_clock::now() - start).count());
-      if (fd < 0) {
-        return PosixError(filename_, errno);
-      }
+      std::abort();
     }
 
     assert(fd != -1);
 
     Status status;
-    //auto start = high_resolution_clock::now();
-    ssize_t read_size = ::pread(fd, scratch, n, static_cast<off_t>(offset));
-    //fprintf(stderr, "PREAD: time %llu ns\n", duration_cast<nanoseconds>(high_resolution_clock::now() - start).count());
-    *result = Slice(scratch, (read_size < 0) ? 0 : read_size);
+    ssize_t read_size;
+    if (use_dio_) {
+      ssize_t real_offset = offset / logical_sector_size_ * logical_sector_size_;
+      ssize_t real_n = (n + offset - real_offset + logical_sector_size_ - 1) / logical_sector_size_ * logical_sector_size_;
+      //auto start = high_resolution_clock::now();
+      read_size = ::pread(fd, scratch, real_n, static_cast<off_t>(real_offset));
+      std::memmove(scratch, scratch + offset - real_offset, std::min(n, read_size - (offset - real_offset)));
+      //fprintf(stderr, "PREAD: time %llu ns\n", duration_cast<nanoseconds>(high_resolution_clock::now() - start).count());
+      *result = Slice(scratch, std::min(n, read_size - (offset - real_offset)));  
+    } else {
+      read_size = ::pread(fd, scratch, n, static_cast<off_t>(offset));
+      *result = Slice(scratch, read_size);  
+    }
+    
     //if(n>4096){
     //  fprintf(stderr, "WARNING: PREAD size > 4KB\n");
     //}
@@ -208,11 +243,26 @@ class PosixRandomAccessFile final : public RandomAccessFile {
     return status;
   }
 
+  RandomAccessFile* GetAnotherRAFile() const override {
+    int fd = ::open(filename_.c_str(), O_RDONLY | kOpenBaseFlags);
+    if (fd < 0) {
+      std::abort();
+    }
+    PosixRandomAccessFile* ret = new PosixRandomAccessFile(filename_, fd, fd_limiter_, false);
+    return ret;
+  }
+
  private:
   const bool has_permanent_fd_;  // If false, the file is opened on every read.
   const int fd_;                 // -1 if has_permanent_fd_ is false.
+#ifdef USE_READAHEAD
+  mutable int off_{-1}, cnt_{0}, buf_off_{-1000000000}, buf_len_{0};
+  mutable char* buf_;
+#endif
   Limiter* const fd_limiter_;
+  int logical_sector_size_;
   const std::string filename_;
+  bool use_dio_;
 };
 
 // Implements random read access in a file using mmap().
@@ -267,9 +317,12 @@ class PosixWritableFile final : public WritableFile {
         fd_(fd),
         is_manifest_(IsManifest(filename)),
         filename_(std::move(filename)),
-        dirname_(Dirname(filename_)) {}
+        dirname_(Dirname(filename_)) {
+          buf_ = (char*)::aligned_alloc(4096, kWritableFileBufferSize);
+        }
 
   ~PosixWritableFile() override {
+    free(buf_);
     if (fd_ >= 0) {
       // Ignoring any potential errors
       Close();
@@ -308,7 +361,7 @@ class PosixWritableFile final : public WritableFile {
   }
 
   Status Close() override {
-    Status status = FlushBuffer();
+    Status status = Sync();
     const int close_result = ::close(fd_);
     if (close_result < 0 && status.ok()) {
       status = PosixError(filename_, errno);
@@ -447,7 +500,7 @@ class PosixWritableFile final : public WritableFile {
   }
 
   // buf_[0, pos_ - 1] contains data to be written to fd_.
-  char buf_[kWritableFileBufferSize];
+  char* buf_;
   size_t pos_;
   int fd_;
 
@@ -532,34 +585,13 @@ class PosixEnv : public Env {
   Status NewRandomAccessFile(const std::string& filename,
                              RandomAccessFile** result) override {
     *result = nullptr;
-    int fd = ::open(filename.c_str(), O_RDONLY | kOpenBaseFlags);
+    int fd = ::open(filename.c_str(), O_RDONLY | kOpenBaseFlags | O_DIRECT);
     if (fd < 0) {
       return PosixError(filename, errno);
     }
 
-    if (!mmap_limiter_.Acquire()) {
-      *result = new PosixRandomAccessFile(filename, fd, &fd_limiter_);
-      return Status::OK();
-    }
-
-    uint64_t file_size;
-    Status status = GetFileSize(filename, &file_size);
-    if (status.ok()) {
-      void* mmap_base =
-          ::mmap(/*addr=*/nullptr, file_size, PROT_READ, MAP_SHARED, fd, 0);
-      if (mmap_base != MAP_FAILED) {
-        *result = new PosixMmapReadableFile(filename,
-                                            reinterpret_cast<char*>(mmap_base),
-                                            file_size, &mmap_limiter_);
-      } else {
-        status = PosixError(filename, errno);
-      }
-    }
-    ::close(fd);
-    if (!status.ok()) {
-      mmap_limiter_.Release();
-    }
-    return status;
+    *result = new PosixRandomAccessFile(filename, fd, &fd_limiter_);
+    return Status::OK();
   }
 
   Status NewWritableFile(const std::string& filename,

@@ -72,18 +72,18 @@ Status ReadBlock(RandomAccessFile* file, const ReadOptions& options,
   // Read the block contents as well as the type/crc footer.
   // See table_builder.cc for the code that built this structure.
   size_t n = static_cast<size_t>(handle.size());
-  char* buf = new char[n + kBlockTrailerSize];
+  char* buf = (char*)::aligned_alloc(4096, n + kBlockTrailerSize + 8192);
   Slice contents;
 	//fprintf(stderr, "file read %zu bytes\n", n + kBlockTrailerSize);
   //fprintf(stderr, "%X Read-Format n %llu kBlockTrailerSize %llu\n", std::this_thread::get_id(), n, kBlockTrailerSize);
   Status s = file->Read(handle.offset(), n + kBlockTrailerSize, &contents, buf);
   if (!s.ok()) {
-    delete[] buf;
-		//fprintf(stderr, "ReadBlock status not okay\n");
+    free(buf);
+		fprintf(stderr, "ReadBlock status not okay\n");
     return s;
   }
   if (contents.size() != n + kBlockTrailerSize) {
-    delete[] buf;
+    free(buf);
 		//fprintf(stderr, "ReadBlock truncated block\n");
     return Status::Corruption("truncated block read");
   }
@@ -94,7 +94,7 @@ Status ReadBlock(RandomAccessFile* file, const ReadOptions& options,
     const uint32_t crc = crc32c::Unmask(DecodeFixed32(data + n + 1));
     const uint32_t actual = crc32c::Value(data, n + 1);
     if (actual != crc) {
-      delete[] buf;
+      free(buf);
 			//fprintf(stderr, "ReadBlock checksum mismatch\n");
       s = Status::Corruption("block checksum mismatch");
       return s;
@@ -107,7 +107,7 @@ Status ReadBlock(RandomAccessFile* file, const ReadOptions& options,
         // File implementation gave us pointer to some other data.
         // Use it directly under the assumption that it will be live
         // while the file is open.
-        delete[] buf;
+        free(buf);
         result->data = Slice(data, n);
         result->heap_allocated = false;
         //result->cachable = false;  // Do not double-cache
@@ -125,23 +125,23 @@ Status ReadBlock(RandomAccessFile* file, const ReadOptions& options,
 			//fprintf(stderr, "ReadBlock snappycompression\n");
       size_t ulength = 0;
       if (!port::Snappy_GetUncompressedLength(data, n, &ulength)) {
-        delete[] buf;
+        free(buf);
         return Status::Corruption("corrupted compressed block contents");
       }
       char* ubuf = new char[ulength];
       if (!port::Snappy_Uncompress(data, n, ubuf)) {
-        delete[] buf;
-        delete[] ubuf;
+        free(buf);
+        free(ubuf);
         return Status::Corruption("corrupted compressed block contents");
       }
-      delete[] buf;
+      free(buf);
       result->data = Slice(ubuf, ulength);
       result->heap_allocated = true;
       result->cachable = true;
       break;
     }
     default:
-      delete[] buf;
+      free(buf);
 			//fprintf(stderr, "ReadBlock bad block type\n");
       return Status::Corruption("bad block type");
   }

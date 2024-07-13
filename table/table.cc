@@ -16,6 +16,7 @@
 #include "table/format.h"
 #include "table/two_level_iterator.h"
 #include "util/coding.h"
+#include <iostream>
 
 namespace leveldb {
 
@@ -24,11 +25,13 @@ struct Table::Rep {
     delete filter;
     delete[] filter_data;
     delete index_block;
+    delete file_seq;
   }
 
   Options options;
   Status status;
   RandomAccessFile* file;
+  RandomAccessFile* file_seq;
   uint64_t cache_id;
   FilterBlockReader* filter;
   const char* filter_data;
@@ -44,7 +47,7 @@ Status Table::Open(const Options& options, RandomAccessFile* file,
     return Status::Corruption("file is too short to be an sstable");
   }
 
-  char footer_space[Footer::kEncodedLength];
+  char footer_space[Footer::kEncodedLength + 8192] __attribute__((aligned(4096)));
   Slice footer_input;
   Status s = file->Read(size - Footer::kEncodedLength, Footer::kEncodedLength,
                         &footer_input, footer_space);
@@ -52,7 +55,10 @@ Status Table::Open(const Options& options, RandomAccessFile* file,
 
   Footer footer;
   s = footer.DecodeFrom(&footer_input);
-  if (!s.ok()) return s;
+  if (!s.ok()) {
+    std::cerr << "FUCK IN TABLE::OPEN" << std::endl;
+    return s;
+  }
 
   // Read the index block
   BlockContents index_block_contents;
@@ -72,6 +78,7 @@ Status Table::Open(const Options& options, RandomAccessFile* file,
     Rep* rep = new Table::Rep;
     rep->options = options;
     rep->file = file;
+    rep->file_seq = file->GetAnotherRAFile();
     rep->metaindex_handle = footer.metaindex_handle();
     rep->index_block = index_block;
     rep->cache_id = (options.block_cache ? options.block_cache->NewId() : 0);
@@ -162,7 +169,7 @@ static void ReleaseBlock(void* arg, void* h) {
 // Convert an index iterator value (i.e., an encoded BlockHandle)
 // into an iterator over the contents of the corresponding block.
 Iterator* Table::BlockReader(void* arg, const ReadOptions& options,
-                             const Slice& index_value) {
+                             const Slice& index_value, bool use_dio) {
   Table* table = reinterpret_cast<Table*>(arg);
   Cache* block_cache = table->rep_->options.block_cache;
   Block* block = nullptr;
@@ -195,7 +202,7 @@ Iterator* Table::BlockReader(void* arg, const ReadOptions& options,
 				//using namespace std::chrono;
 				//auto begin_read = high_resolution_clock::now();
         //fprintf(stderr, "%X RB-BLKRDR1\n", std::this_thread::get_id());
-        s = ReadBlock(table->rep_->file, options, handle, &contents);
+        s = ReadBlock(use_dio ? table->rep_->file : table->rep_->file_seq, options, handle, &contents);
 				//auto end_read = high_resolution_clock::now();
 				//fprintf(stderr, "block cache miss; read block takes %llu us\n", duration_cast<microseconds>(end_read - begin_read).count());
 				//fprintf(stderr, "block cache miss\n");
@@ -211,7 +218,7 @@ Iterator* Table::BlockReader(void* arg, const ReadOptions& options,
       }
     } else {
       //fprintf(stderr, "%X RB-BLKRDR2\n", std::this_thread::get_id());
-      s = ReadBlock(table->rep_->file, options, handle, &contents);
+      s = ReadBlock(use_dio ? table->rep_->file : table->rep_->file_seq, options, handle, &contents);
       if (s.ok()) {
         block = new Block(contents);
       }
@@ -260,7 +267,7 @@ Status Table::InternalGet(const ReadOptions& options, const Slice& k, void* arg,
         return Status::OK();
       }
       //fprintf(stderr, "iiter else\n");
-      Iterator* block_iter = BlockReader(this, options, iiter->value());
+      Iterator* block_iter = BlockReader(this, options, iiter->value(), true);
       block_iter->Seek(k);
       if (block_iter->Valid()) {
         //fprintf(stderr, "iiter else if block iter key %s value size %d\n", block_iter->key().ToString(true).c_str(), block_iter->value().size());

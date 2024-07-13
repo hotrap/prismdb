@@ -37,6 +37,7 @@ struct slab_context_new {
    struct slab_new **slabs;                                  // Files managed by this worker
    uint64_t rdt;                                         // Latest timestamp
    int nb_slabs;
+   size_t size_on_disk;
 };
 
 //struct slab_new;

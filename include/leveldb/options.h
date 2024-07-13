@@ -82,7 +82,7 @@ struct LEVELDB_EXPORT Options {
   // Also, a larger write buffer will result in a longer recovery time
   // the next time the database is opened.
   //size_t write_buffer_size = 4 * 1024 * 1024;
-  size_t write_buffer_size = 0;
+  size_t write_buffer_size = 64 << 20;
 
   // Number of open files that can be used by the DB.  You may need to
   // increase this if your database has a large working set (budget
@@ -185,9 +185,10 @@ struct LEVELDB_EXPORT Options {
   uint32_t popCacheSize = 80000000;
   uint32_t load_phase_op_num = 0;
   uint64_t numKeys = 200000000;
+  uint64_t fd_size = 1.2e9;
   uint64_t numWriteKeys = numKeys; // For twitter
   uint64_t numPartitions = 16;
-  uint64_t maxDbSizeBytes = 0;
+  uint64_t maxDbSizeBytes = 10e9;
   uint32_t maxKeySizeBytes = 8;
   uint32_t maxKVSizeBytes = 1024;
   float optaneThreshold = 0.1;
