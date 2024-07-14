@@ -212,6 +212,7 @@ class PosixRandomAccessFile final : public RandomAccessFile {
 
     Status status;
     ssize_t read_size;
+#ifdef USE_O_DIRECT
     if (use_dio_) {
       ssize_t real_offset = offset / logical_sector_size_ * logical_sector_size_;
       ssize_t real_n = (n + offset - real_offset + logical_sector_size_ - 1) / logical_sector_size_ * logical_sector_size_;
@@ -224,6 +225,10 @@ class PosixRandomAccessFile final : public RandomAccessFile {
       read_size = ::pread(fd, scratch, n, static_cast<off_t>(offset));
       *result = Slice(scratch, read_size);  
     }
+#else
+      read_size = ::pread(fd, scratch, n, static_cast<off_t>(offset));
+      *result = Slice(scratch, read_size);  
+#endif
     
     //if(n>4096){
     //  fprintf(stderr, "WARNING: PREAD size > 4KB\n");
@@ -585,7 +590,11 @@ class PosixEnv : public Env {
   Status NewRandomAccessFile(const std::string& filename,
                              RandomAccessFile** result) override {
     *result = nullptr;
+  #ifdef USE_O_DIRECT
     int fd = ::open(filename.c_str(), O_RDONLY | kOpenBaseFlags | O_DIRECT);
+  #else 
+    int fd = ::open(filename.c_str(), O_RDONLY | kOpenBaseFlags);
+  #endif
     if (fd < 0) {
       return PosixError(filename, errno);
     }

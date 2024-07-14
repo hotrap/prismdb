@@ -32,8 +32,6 @@
 // #include "utils.h"
 //#include "items.h"
 
-#define USE_O_DIRECT
-
 #ifdef USE_O_DIRECT
 int use_o_direct = 1;
 #else

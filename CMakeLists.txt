@@ -236,6 +236,11 @@ else (WIN32)
   )
 endif (WIN32)
 
+
+if (USE_DIO)
+  target_compile_definitions(leveldb PRIVATE USE_O_DIRECT)
+endif(USE_DIO)
+
 # MemEnv is not part of the interface and could be pulled to a separate library.
 target_sources(leveldb
   PRIVATE

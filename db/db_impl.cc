@@ -177,6 +177,7 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
           maxKeySizeBytes = options_.maxKeySizeBytes;
           maxKVSizeBytes = options_.maxKVSizeBytes;
           optaneThreshold = options_.optaneThreshold;
+          fd_size = options_.fd_size;
           maxSstFileSizeBytes = options_.maxSstFileSizeBytes; // size of sst files
           minSstFileMigThreshold = options_.minSstFileMigThreshold;
           num_warmup_migrations = options_.num_warmup_migrations;
@@ -1315,7 +1316,7 @@ void DBImpl::BackgroundCall(PartitionContext* p_ctx) {
         break;
       }
     }
-    while(p_ctx->size_in_bytes > (float)(maxDbSizeBytes*optaneThreshold*migration_lower_bound/(float)numPartitions));
+    while(p_ctx->size_in_bytes > (float)(fd_size*migration_lower_bound/(float)numPartitions));
   }
 
   p_ctx->background_compaction_scheduled = false;
@@ -3053,8 +3054,8 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
     }
 
     // trigger migration when current size exceeds the pre-set upper bound
-    //if (partitions[p].size_in_bytes > (float)(maxDbSizeBytes*optaneThreshold*partitions[p].migration_upper_bound/(float)numPartitions)) {
-      //fprintf(stderr, "%X\tGet optane partition %llu optane size %f soft size %f \n", std::this_thread::get_id(), p, (float)(maxDbSizeBytes*optaneThreshold)/(float)numPartitions, (float)((maxDbSizeBytes*optaneThreshold*soft_limit)/(float)numPartitions));
+    //if (partitions[p].size_in_bytes > (float)(fd_size*partitions[p].migration_upper_bound/(float)numPartitions)) {
+      //fprintf(stderr, "%X\tGet optane partition %llu optane size %f soft size %f \n", std::this_thread::get_id(), p, (float)(fd_size)/(float)numPartitions, (float)((fd_size*soft_limit)/(float)numPartitions));
       //MaybeScheduleCompaction(p);
     //}
 
@@ -3132,7 +3133,7 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
   partitions[p].qlc_reads++;
 
   // trigger migration when current size exceeds the pre-set upper bound
-  if (partitions[p].size_in_bytes > (float)(maxDbSizeBytes*optaneThreshold*partitions[p].migration_upper_bound/(float)numPartitions)) {
+  if (partitions[p].size_in_bytes > (float)(fd_size*partitions[p].migration_upper_bound/(float)numPartitions)) {
     MaybeScheduleCompaction(p);
   } else {
     CheckAndTriggerUpserts(&partitions[p]);
@@ -3778,11 +3779,11 @@ Status DBImpl::PutImpl(const WriteOptions& opt, const Slice& key, const Slice& v
   memcpy(item_value, value.data(), val_sz);
 
   // check if optane allocation has exceeded, then wait for migration to finish
-  //while (partitions[p].size_in_bytes > (float)(maxDbSizeBytes*optaneThreshold/(float)numPartitions));
-  //if (partitions[p].size_in_bytes > (float)(maxDbSizeBytes*optaneThreshold/(float)numPartitions)){
+  //while (partitions[p].size_in_bytes > (float)(fd_size/(float)numPartitions));
+  //if (partitions[p].size_in_bytes > (float)(fd_size/(float)numPartitions)){
   //  fprintf(stderr, "ERROR: partition %d goes beyond max capacity!\n", p);
   //}
-  //while (partitions[p].size_in_bytes > (float)(maxDbSizeBytes*optaneThreshold/(float)numPartitions)){
+  //while (partitions[p].size_in_bytes > (float)(fd_size/(float)numPartitions)){
     //while (partitions[p].background_compaction_scheduled){
     //fprintf(stderr, "%X\tPUT_THROTTLE partition size %llu back_comp_sched %d\n", std::this_thread::get_id(), partitions[p].size_in_bytes, partitions[p].background_compaction_scheduled);
     //partitions[p].background_work_finished_signal.Wait();
@@ -3930,18 +3931,18 @@ Status DBImpl::PutImpl(const WriteOptions& opt, const Slice& key, const Slice& v
     //fprintf(stderr, "%X\tpartition %llu max optane usage %llu\n", std::this_thread::get_id(), p, partitions[p].max_optane_usage);
   }
   if (partitions[p].num_put_reqs++ % 1000000 == 0){
-    fprintf(stderr, "%X\tpartition %llu optane usage curr %llu max %llu %llu, limit %.2lf\n", std::this_thread::get_id(), p, partitions[p].size_in_bytes, partitions[p].max_optane_usage, maxDbSizeBytes, (double)(maxDbSizeBytes*optaneThreshold*partitions[p].migration_upper_bound/(double)numPartitions));
+    fprintf(stderr, "%X\tpartition %llu optane usage curr %llu max %llu %llu, limit %.2lf\n", std::this_thread::get_id(), p, partitions[p].size_in_bytes, partitions[p].max_optane_usage, maxDbSizeBytes, (double)(fd_size*partitions[p].migration_upper_bound/(double)numPartitions));
   }
   //fprintf(stderr, "psize %llu maxdb %llu optthresh %f soft_limit %f num_p %llu\n", partitions[p].size_in_bytes, maxDbSizeBytes, optaneThreshold, soft_limit, numPartitions);
 
   // trigger migration when current size exceeds the pre-set upper bound
-  if (partitions[p].size_in_bytes > (float)(maxDbSizeBytes*optaneThreshold*partitions[p].migration_upper_bound/(float)numPartitions)) {
-    //fprintf(stderr, "%X\tpartition %llu optane size %f soft size %f \n", std::this_thread::get_id(), p, (float)(maxDbSizeBytes*optaneThreshold)/(float)numPartitions, (float)((maxDbSizeBytes*optaneThreshold*soft_limit)/(float)numPartitions));
+  if (partitions[p].size_in_bytes > (float)(fd_size*partitions[p].migration_upper_bound/(float)numPartitions)) {
+    //fprintf(stderr, "%X\tpartition %llu optane size %f soft size %f \n", std::this_thread::get_id(), p, (float)(fd_size)/(float)numPartitions, (float)((fd_size*soft_limit)/(float)numPartitions));
     MaybeScheduleCompaction(p); // TODO: add partition_ctx
   }
 
   // trigger the rate limiter when current size exceeds the pre-set rate-limit threshold
-  if (partitions[p].size_in_bytes > (float)(maxDbSizeBytes*optaneThreshold*partitions[p].ratelimit_threshold/(float)numPartitions)) {
+  if (partitions[p].size_in_bytes > (float)(fd_size*partitions[p].ratelimit_threshold/(float)numPartitions)) {
     if (++sleep_counter%5 == 0){
       env_->SleepForMicroseconds(20); // was 20 for YCSB, setting 100 for twitter
       //fprintf(stderr, "%X\tpartition %llu rate limit", std::this_thread::get_id(), p);
@@ -4071,7 +4072,7 @@ Status DBImpl::PutImpl(const WriteOptions& opt, const Slice& key, const Slice& v
   delete item;
 
   partitions[p].mtx.unlock();
-  if (partitions[p].size_in_bytes > (float)(maxDbSizeBytes*optaneThreshold/(float)numPartitions)) {
+  if (partitions[p].size_in_bytes > (float)(fd_size/(float)numPartitions)) {
     fprintf(stderr, "Schedule compaction trigger partition %d, partition size %lu numPartitions %lu maxDbSize %lu optaneThreshold %f\n", p, partitions[p].size_in_bytes, numPartitions, maxDbSizeBytes, optaneThreshold);
     MaybeScheduleCompaction(&partitions[p]); // TODO: add partition_ctx
   }
@@ -4220,6 +4221,12 @@ DB::~DB() = default;
 
 Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   *dbptr = nullptr;
+
+#ifdef USE_O_DIRECT
+  std::cerr << "use direct io!" << std::endl;
+#else 
+  std::cerr << "not use direct io!" << std::endl;
+#endif
 
   DBImpl* impl = new DBImpl(options, dbname);
   impl->mutex_.Lock();

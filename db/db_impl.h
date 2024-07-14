@@ -597,6 +597,7 @@ class DBImpl : public DB {
   const bool is_twitter_ = false; // true
   uint32_t slab_size;
   uint32_t nb_slabs = 1; //5
+  size_t fd_size;
 
   // table_cache_ provides its own synchronization
   TableCache* const table_cache_;
