@@ -3700,7 +3700,7 @@ void DBImpl::GetApproximateSizes(const Range* range, int n, uint64_t* sizes) {
 int DBImpl::getPartition(uint64_t k) {
   size_t partition_size = numKeys / numPartitions;
   //fprintf(stderr, "getPartition returns \n");
-  return k / partition_size;
+  return std::min<int>(k / partition_size, numPartitions - 1);
   //return (k-1) / partition_size; // Adding -1 since keys start from 1 not 0
 }
 
