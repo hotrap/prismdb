@@ -489,12 +489,10 @@ void DBImpl::initPartitions(void) {
           ctx->slabs[j] = create_slab_new(partitions[i].slabContext, i, 1000, options_.slab_dir.c_str()); // write dominated trace cluster 39
         }
       } else {
-        int slab_size = 1024;
-        while (maxKVSizeBytes > slab_size) slab_size >>= 1;
         ctx->size_on_disk = options_.fd_size / numPartitions / nb_slabs;
         //ctx->slabs[j] = create_slab_new(partitions[i].slabContext, i, 1024);
         if (j == 0) {
-          ctx->slabs[j] = create_slab_new(partitions[i].slabContext, i, slab_size, options_.slab_dir.c_str());
+          ctx->slabs[j] = create_slab_new(partitions[i].slabContext, i, maxKVSizeBytes, options_.slab_dir.c_str());
         }  
         //if (j == 0) {
         //  ctx->slabs[j] = create_slab_new(partitions[i].slabContext, i, 800);
